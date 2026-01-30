@@ -1,8 +1,13 @@
 import fetch from 'node-fetch';
 
+/**
+ * Get AI response safely with fallback
+ * @param {object} profile
+ * @param {string} message
+ * @returns {string} AI response or fallback
+ */
 export async function getAIResponse(profile, message) {
   try {
-    // Build user profile safely, using "unknown" for null/undefined
     const userPrompt = `
 Known user profile:
 Name: ${profile.name || 'unknown'}
@@ -15,55 +20,39 @@ User message:
 "${message}"
 `.trim();
 
-    console.log('User prompt:', userPrompt);
-
-
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // model: 'gpt-4',
         model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
             content:
-              'You are a gym-focused personal trainer for men 18–35 chasing an aesthetic physique. Tone: direct, confident, motivating, not cringe. Keep replies short.',
+              'You are a gym-focused personal trainer. Tone: direct, confident, motivating. Short replies only.',
           },
-          {
-            role: 'assistant',
-            content:
-              'Rules: Training-only. Give a workout if asked. Ask max 2 questions if info missing. Output plain text only.',
-          },
-          // {
-          //   role: 'system', 
-          //   content: 'You are a health-care assistant. Focus in Booking system and initial findings only based on user symptoms.'
-          // },
+          { role: 'assistant', content: 'Rules: Training-only. Ask max 2 questions if info missing. Plain text output only.' },
           { role: 'user', content: userPrompt },
         ],
       }),
     });
 
-    console.log('OpenAI API response status:', response.status);
+    if (!response.ok) throw new Error(`OpenAI API error ${response.status}`);
 
     const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
 
-    console.log('OpenAI API response:', JSON.stringify(data, null, 2));
+    if (!content) throw new Error('OpenAI returned empty content');
 
-
-    // Check for valid response
-    if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('OpenAI API response invalid:', JSON.stringify(data, null, 2));
-      return 'Sorry, something went wrong with OpenAI.';
-    }
-
-    return data.choices[0].message.content;
+    return content;
 
   } catch (err) {
-    console.error('Error calling OpenAI API:', err);
-    return 'Sorry, something went wrong with OpenAI.';
+    console.error('OpenAI error:', err);
+
+    // Fallback message
+    return '⚠️ Sorry, I am having trouble generating a response right now. Please try again later.';
   }
 }

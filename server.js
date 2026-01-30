@@ -47,14 +47,10 @@ await connectDB();
 
 const useWebhook = process.env.TELEGRAM_USE_WEBHOOK === 'true';
 
-// Polling mode
 if (!useWebhook) {
   bot.on('message', handleTelegramMessage);
   console.log('Telegram bot running in polling mode');
-}
-
-// Webhook mode
-if (useWebhook) {
+} else {
   await telegramRoutes(fastify);
   console.log('Telegram bot running in webhook mode');
 }
@@ -64,3 +60,4 @@ fastify.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
   if (err) throw err;
   console.log(`Server running at ${address}`);
 });
+

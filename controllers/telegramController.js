@@ -2,147 +2,101 @@ import { User } from '../models/userModel.js';
 import { getAIResponse } from '../services/openAIService.js';
 import { sendTelegramMessage } from '../services/telegramService.js';
 
-const REQUIRED_FIELDS = ['age','sex','heightCm','weightKg'];
+const SINGLE_PROMPT = `Hi! To create your profile, please provide the following information in this format:
 
-const FIELD_PROMPTS = {
-  name: 'What is your name?',
-  age: 'How old are you?',
-  sex: 'What is your gender? (male/female/other)',
-  heightCm: 'What is your height in cm?',
-  weightKg: 'What is your weight in kg?',
-};
+Name, Age, Sex (male/female/other), Height in cm, Weight in kg
+
+Example: John, 25, male, 180, 75
+`;
 
 export async function handleTelegramMessage(msg) {
   const chatId = msg.chat.id;
-  const incomingText = msg.text?.trim();
-  if (!incomingText) return;
+  const text = msg.text?.trim();
+  if (!text) return;
 
   try {
-    // 1️⃣ Find or create user
     let user = await User.findOne({ telegramUserId: chatId });
+
+    // Create new user if not exists
     if (!user) {
       user = await User.create({
         telegramUserId: chatId,
-        profile: { sex: null }, // null until user provides value
+        pendingFields: ['all'],
       });
+      await sendTelegramMessage(chatId, SINGLE_PROMPT);
+      return;
     }
 
     user.lastSeenAt = new Date();
 
-    // --- 2️⃣ Handle commands ---
-
-    // Reset profile
-    if (incomingText.toLowerCase() === '/resetprofile') {
-      user.profile = {
-        name: '',
-        age: null,
-        sex: null,
-        heightCm: null,
-        weightKg: null,
-      };
-      user.pendingFields = [...REQUIRED_FIELDS];
+    // --- Commands ---
+    if (text.toLowerCase() === '/resetprofile') {
+      user.profile = {};
+      user.pendingFields = ['all'];
       await user.save();
-
       await sendTelegramMessage(chatId, '✅ Your profile has been reset. Let’s start fresh!');
-      await sendTelegramMessage(chatId, FIELD_PROMPTS[user.pendingFields[0]]);
+      await sendTelegramMessage(chatId, SINGLE_PROMPT);
       return;
     }
 
-    // Show profile
-    if (incomingText.toLowerCase() === '/profile') {
-      const profile = user.profile;
-      const text = `
-📝 Your current profile:
-Name: ${profile.name || 'not set'}
-Age: ${profile.age ?? 'not set'}
-Sex: ${profile.sex ?? 'not set'}
-Height: ${profile.heightCm ?? 'not set'} cm
-Weight: ${profile.weightKg ?? 'not set'} kg
-      `.trim();
-      await sendTelegramMessage(chatId, text);
+    if (text.toLowerCase() === '/profile') {
+      const p = user.profile;
+      await sendTelegramMessage(
+        chatId,
+        `📝 Your current profile:
+Name: ${p.name || 'not set'}
+Age: ${p.age ?? 'not set'}
+Sex: ${p.sex ?? 'not set'}
+Height: ${p.heightCm ?? 'not set'} cm
+Weight: ${p.weightKg ?? 'not set'} kg`
+      );
       return;
     }
 
-    // --- 3️⃣ Sanitize invalid sex value ---
-    if (user.profile.sex && !['male','female','other'].includes(user.profile.sex)) {
-      user.profile.sex = null;
-    }
+    // --- Handle single-response profile ---
+    if (user.pendingFields.includes('all')) {
+      const parts = text.split(',').map(p => p.trim());
 
-    // --- 4️⃣ Handle pending fields ---
-    if (user.pendingFields.length > 0) {
-      const field = user.pendingFields[0];
-
-      switch (field) {
-        case 'age': {
-          const val = parseInt(incomingText);
-          if (!isNaN(val) && val > 0) user.profile.age = val;
-          break;
-        }
-        case 'heightCm': {
-          const val = parseInt(incomingText);
-          if (!isNaN(val) && val > 0) user.profile.heightCm = val;
-          break;
-        }
-        case 'weightKg': {
-          const val = parseInt(incomingText);
-          if (!isNaN(val) && val > 0) user.profile.weightKg = val;
-          break;
-        }
-        case 'sex': {
-          const val = incomingText.toLowerCase();
-          if (['male','female','other'].includes(val)) {
-            user.profile.sex = val;
-          } else {
-            await sendTelegramMessage(chatId, '❌ Please enter male, female, or other.');
-            return; // ask again
-          }
-          break;
-        }
-        default:
-          user.profile[field] = incomingText;
+      if (parts.length !== 5) {
+        await sendTelegramMessage(chatId, '❌ Please provide all 5 fields in the correct format.');
+        return;
       }
 
-      user.pendingFields.shift();
+      const [name, ageStr, sex, heightStr, weightStr] = parts;
+      const age = parseInt(ageStr);
+      const heightCm = parseInt(heightStr);
+      const weightKg = parseInt(weightStr);
+
+      if (!name || isNaN(age) || age < 1 || age > 120 ||
+          !['male','female','other'].includes(sex.toLowerCase()) ||
+          isNaN(heightCm) || heightCm < 50 || heightCm > 300 ||
+          isNaN(weightKg) || weightKg < 10 || weightKg > 500) {
+        await sendTelegramMessage(chatId, '❌ Invalid input. Make sure to follow the format: Name, Age, Sex, Height, Weight');
+        return;
+      }
+
+      // Save profile
+      user.profile = {
+        name,
+        age,
+        sex: sex.toLowerCase(),
+        heightCm,
+        weightKg,
+      };
+      user.pendingFields = [];
       await user.save();
 
-      if (user.pendingFields.length > 0) {
-        await sendTelegramMessage(chatId, FIELD_PROMPTS[user.pendingFields[0]]);
-        return;
-      }
-
-      await sendTelegramMessage(chatId, '✅ Thanks! Now I can generate your workout.');
-    } 
-    else {
-      // --- 5️⃣ Check for missing required fields ---
-      const missingFields = REQUIRED_FIELDS.filter(f => 
-        user.profile[f] == null || user.profile[f] === ''
-      );
-
-      if (missingFields.length > 0) {
-        user.pendingFields = missingFields;
-        await user.save();
-        await sendTelegramMessage(chatId, FIELD_PROMPTS[missingFields[0]]);
-        return;
-      }
+      await sendTelegramMessage(chatId, '✅ Thanks! Your profile is complete. You can now ask me for a workout.');
+      return;
     }
 
-    // --- 6️⃣ Generate OpenAI response ---
-    const reply = await getAIResponse(
-      {
-        name: user.profile.name,
-        age: user.profile.age,
-        sex: user.profile.sex,       // null until set
-        heightCm: user.profile.heightCm,
-        weightKg: user.profile.weightKg,
-      },
-      incomingText
-    );
-
+    // --- Generate AI response ---
+    const reply = await getAIResponse(user.profile, text);
     await sendTelegramMessage(chatId, reply);
     await user.save();
 
   } catch (err) {
     console.error('Telegram message error:', err);
-    await sendTelegramMessage(chatId, '⚠️ Oops! Something went wrong.');
+    await sendTelegramMessage(chatId, '⚠️ Oops! Something went wrong. Please try again.');
   }
 }

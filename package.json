@@ -1,0 +1,16 @@
+{
+  "name": "telegram-gym-bot",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.29.0",
+    "mongoose": "^8.1.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.27.0",
+    "dotenv": "^16.4.5"
+  }
+}

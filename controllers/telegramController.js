@@ -7,7 +7,7 @@ const REQUIRED_FIELDS = ['age','sex','heightCm','weightKg'];
 const FIELD_PROMPTS = {
   name: 'What is your name?',
   age: 'How old are you?',
-  sex: 'What is your sex? (male/female/other)',
+  sex: 'What is your gender? (male/female/other)',
   heightCm: 'What is your height in cm?',
   weightKg: 'What is your weight in kg?',
 };

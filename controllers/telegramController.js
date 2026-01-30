@@ -2,7 +2,7 @@ import { User } from '../models/userModel.js';
 import { getAIResponse } from '../services/openAIService.js';
 import { sendTelegramMessage } from '../services/telegramService.js';
 
-const SINGLE_PROMPT = `Hi! To create your profile, please provide the following information in this format:
+const SINGLE_PROMPT = `Hi! Let’s get you started! 💪🔥 Please provide the following information in this format:
 
 Name, Age, Sex (male/female/other), Height in cm, Weight in kg
 
@@ -86,7 +86,7 @@ Weight: ${p.weightKg ?? 'not set'} kg`
       user.pendingFields = [];
       await user.save();
 
-      await sendTelegramMessage(chatId, '✅ Thanks! Your profile is complete. You can now ask me for a workout.');
+      await sendTelegramMessage(chatId, 'Awesome! Your profile is all set. 💪🔥 I’m ready to build your next workout—just tell me what you want to train today!');
       return;
     }
 

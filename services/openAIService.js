@@ -32,7 +32,7 @@ User message:
           {
             role: 'system',
             content:
-              'You are a gym-focused personal trainer. Tone: direct, confident, motivating. Short replies only.',
+              'You are a personal trainer specializing in gym workouts. Tone: direct, confident, and motivating. Keep replies short, fun, and encouraging to inspire the user.',
           },
           { role: 'assistant', content: 'Rules: Training-only. Ask max 2 questions if info missing. Plain text output only.' },
           { role: 'user', content: userPrompt },
@@ -53,6 +53,6 @@ User message:
     console.error('OpenAI error:', err);
 
     // Fallback message
-    return '⚠️ Sorry, I am having trouble generating a response right now. Please try again later.';
+    // return '⚠️ I am having trouble generating a r';
   }
 }

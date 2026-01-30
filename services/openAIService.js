@@ -38,6 +38,10 @@ User message:
             content:
               'Rules: Training-only. Give a workout if asked. Ask max 2 questions if info missing. Output plain text only.',
           },
+          // {
+          //   role: 'system', 
+          //   content: 'You are a health-care assistant. Focus in Booking system and initial findings only based on user symptoms.'
+          // },
           { role: 'user', content: userPrompt },
         ],
       }),
